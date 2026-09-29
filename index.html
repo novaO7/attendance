@@ -131,6 +131,7 @@ function render(){
   else if (!live && !done) setMsg('', '');
 }
 setInterval(render, 500);
+setTimeout(() => { if (!isAdmin && session.round > 0 && myRound() === rid()) db.goOffline(); }, 4000);
 
 function setMsg(t, c){ const m = $('msg'); m.textContent = t; m.className = 'msg ' + c; }
 
@@ -143,6 +144,7 @@ $('regBtn').onclick = async () => {
     await db.ref(`rounds/${session.round}/names/${key}`).set({name, ts: firebase.database.ServerValue.TIMESTAMP});
     localStorage.setItem('att_round', rid());
     setMsg('تم تسجيلك بنجاح ✓', 'ok'); render();
+    setTimeout(() => { if (!isAdmin) db.goOffline(); }, 1500);
   } catch (e) {
     setMsg('لم يتم التسجيل: التسجيل مغلق أو الاسم مسجّل بالفعل', 'err'); render();
   }
@@ -156,6 +158,7 @@ $('pass').onkeydown = e => { if (e.key === 'Enter') $('loginBtn').click(); };
 $('logoutBtn').onclick = () => auth.signOut();
 auth.onAuthStateChanged(u => {
   isAdmin = !!u;
+  if (u) db.goOnline();
   $('adminCard').classList.toggle('hide', !isAdmin);
   $('loginCard').classList.add('hide');
   $('adminToggle').classList.toggle('hide', isAdmin);
