@@ -76,6 +76,7 @@ td.n{text-align:right;white-space:normal}
       <button id="closeBtn" class="red">قفل التسجيل</button>
     </div>
     <div>المسجلون في الدورة الحالية: <b id="count">0</b> &nbsp;|&nbsp; عدد الدورات: <b id="rcount">0</b></div>
+    <div id="online" class="muted" style="margin-top:6px">المتصلون الآن: <b id="onNum">0</b> من 100 (حد الخطة المجانية)</div>
     <div class="tw"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
     <div class="row">
       <button class="sec" id="copyBtn">نسخ الجدول</button>
@@ -105,7 +106,13 @@ const DURATION = 15 * 60 * 1000;
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database(), auth = firebase.auth();
 const $ = id => document.getElementById(id);
-let session = {open:false, round:0}, offset = 0, isAdmin = false, namesRef = null;
+db.ref('.info/connected').on('value', sn => {
+  if (!sn.val()) return;
+  const me = db.ref('presence').push();
+  me.onDisconnect().remove();
+  me.set(true);
+});
+let session = {open:false, round:0}, offset = 0, isAdmin = false, namesRef = null, presRef = null;
 
 db.ref('.info/serverTimeOffset').on('value', s => offset = s.val() || 0);
 const now = () => Date.now() + offset;
@@ -159,6 +166,15 @@ $('logoutBtn').onclick = () => auth.signOut();
 auth.onAuthStateChanged(u => {
   isAdmin = !!u;
   if (u) db.goOnline();
+  if (presRef) { presRef.off(); presRef = null; }
+  if (u) {
+    presRef = db.ref('presence');
+    presRef.on('value', sn => {
+      const n = sn.numChildren();
+      $('onNum').textContent = n;
+      $('online').style.color = n >= 80 ? 'var(--bad)' : '';
+    });
+  }
   $('adminCard').classList.toggle('hide', !isAdmin);
   $('loginCard').classList.add('hide');
   $('adminToggle').classList.toggle('hide', isAdmin);
