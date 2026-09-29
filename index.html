@@ -81,6 +81,7 @@ td.n{text-align:right;white-space:normal}
       <button class="sec" id="copyBtn">نسخ الجدول</button>
       <button class="sec" id="logoutBtn">خروج</button>
     </div>
+    <button class="red" id="resetBtn" style="margin-top:10px">مسح كل الدورات وإعادة البداية</button>
   </div>
 </main>
 
@@ -109,6 +110,7 @@ let session = {open:false, round:0}, offset = 0, isAdmin = false, namesRef = nul
 db.ref('.info/serverTimeOffset').on('value', s => offset = s.val() || 0);
 const now = () => Date.now() + offset;
 const myRound = () => localStorage.getItem('att_round');
+const rid = () => session.round + '-' + (session.openedAt || 0);
 const remaining = () => session.open ? Math.max(0, (session.openedAt || 0) + DURATION - now()) : 0;
 
 db.ref('session').on('value', s => { session = s.val() || {open:false, round:0}; render(); watchNames(); },
@@ -122,7 +124,7 @@ function render(){
   const m = Math.floor(rem/60000), s = Math.floor(rem%60000/1000);
   $('timer').textContent = live ? String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') : '00:00';
   $('timerNote').textContent = live ? 'الوقت المتبقي للتسجيل' : (session.open ? 'انتهى وقت التسجيل' : 'في انتظار فتح التسجيل من المشرف');
-  const done = myRound() === String(session.round) && session.round > 0;
+  const done = myRound() === rid() && session.round > 0;
   $('regBtn').disabled = !live || done;
   $('name').disabled = !live || done;
   if (done && live) setMsg('تم تسجيلك في هذه الدورة ✓', 'ok');
@@ -139,7 +141,7 @@ $('regBtn').onclick = async () => {
   $('regBtn').disabled = true;
   try {
     await db.ref(`rounds/${session.round}/names/${key}`).set({name, ts: firebase.database.ServerValue.TIMESTAMP});
-    localStorage.setItem('att_round', String(session.round));
+    localStorage.setItem('att_round', rid());
     setMsg('تم تسجيلك بنجاح ✓', 'ok'); render();
   } catch (e) {
     setMsg('لم يتم التسجيل: التسجيل مغلق أو الاسم مسجّل بالفعل', 'err'); render();
@@ -162,6 +164,16 @@ auth.onAuthStateChanged(u => {
 $('openBtn').onclick = () => db.ref('session').set({open:true, round:(session.round||0)+1, openedAt: firebase.database.ServerValue.TIMESTAMP});
 $('closeBtn').onclick = () => db.ref('session/open').set(false);
 
+$('resetBtn').onclick = async () => {
+  if (!confirm('هيتم مسح كل الأسماء وكل الدورات نهائيًا. متأكد؟')) return;
+  if (prompt('اكتب كلمة "مسح" للتأكيد') !== 'مسح') return;
+  try {
+    await db.ref('session').set({open:false, round:0});
+    await db.ref('rounds').remove();
+    cache = {}; watchedRound = null; drawTable(); $('count').textContent = 0;
+    alert('تم مسح كل الدورات');
+  } catch (e) { alert('تعذّر المسح. تأكد من تحديث القواعد في Firebase.'); }
+};
 let watchedRound = null, cache = {};
 function watchNames(){
   if (!isAdmin) { if (namesRef) namesRef.off(); namesRef = null; watchedRound = null; cache = {}; return; }
@@ -177,7 +189,7 @@ function toArr(sn){ const a = []; sn.forEach(c => { a.push(c.val().name); }); re
 const keyOf = n => n.toLowerCase();
 let tableRows = [];
 function drawTable(){
-  const rounds = Object.keys(cache).map(Number).sort((x,y) => x-y);
+  const rounds = Object.keys(cache).map(Number).filter(r => r >= 1).sort((x,y) => x-y);
   $('rcount').textContent = rounds.length;
   const people = {};
   rounds.forEach(r => (cache[r] || []).forEach(n => {
