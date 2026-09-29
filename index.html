@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>حضور Adult Nursing – Div 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#0b4f9e;--blue2:#1e7bd6;--light:#eaf3fc;--line:#d3e2f3;--ink:#12263f;--ok:#1a8a5a;--bad:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Cairo',Tahoma,sans-serif;background:linear-gradient(#f4f9ff,#fff 320px);color:var(--ink);min-height:100vh}
+header{background:var(--blue);color:#fff;padding:18px 16px;text-align:center;border-bottom:4px solid var(--blue2)}
+header small{display:block;opacity:.85;font-size:13px}
+header h1{margin:4px 0 0;font-size:20px}
+.logo{width:44px;height:44px;margin-bottom:4px}
+main{max-width:480px;margin:22px auto;padding:0 14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 4px 14px rgba(11,79,158,.07);margin-bottom:16px;border-top:3px solid var(--blue2)}
+.status{display:inline-block;padding:4px 14px;border-radius:99px;font-weight:700;font-size:14px}
+.st-open{background:#e3f6ec;color:var(--ok)}.st-closed{background:#fdeceb;color:var(--bad)}
+.timer{font-size:52px;font-weight:700;color:var(--blue);letter-spacing:2px;direction:ltr;margin:8px 0 2px}
+.center{text-align:center}
+.muted{color:#5b6f86;font-size:13px}
+input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;margin:8px 0}
+input:focus{outline:none;border-color:var(--blue2)}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:var(--blue);color:#fff;width:100%}
+button:disabled{background:#a9bdd3;cursor:not-allowed}
+button.sec{background:var(--light);color:var(--blue)}
+button.red{background:var(--bad)}
+.row{display:flex;gap:8px}
+.msg{margin-top:10px;font-size:14px;text-align:center;min-height:20px}
+.msg.ok{color:var(--ok)}.msg.err{color:var(--bad)}
+main.wide{max-width:900px}
+.tw{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:10px;margin:10px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th{background:var(--light);color:var(--blue);position:sticky;top:0}
+td.n{text-align:right;white-space:normal}
+.cnt{font-weight:700;color:var(--blue)}
+.link{background:none;color:var(--blue);width:auto;padding:4px;font-size:13px;text-decoration:underline}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#fff"/><path d="M20 10h8v10h10v8H28v10h-8V28H10v-8h10z" fill="#1e7bd6"/></svg>
+  <small>كلية التمريض – جامعة القاهرة</small>
+  <h1>Adult Nursing – Div 1</h1>
+</header>
+<main>
+  <div class="card center">
+    <span id="status" class="status st-closed">جارٍ التحميل…</span>
+    <div class="timer" id="timer">--:--</div>
+    <div class="muted" id="timerNote">الوقت المتبقي للتسجيل</div>
+  </div>
+
+  <div class="card" id="regCard">
+    <b>تسجيل الحضور</b>
+    <input id="name" placeholder="اكتب اسمك الثلاثي" maxlength="80" autocomplete="off">
+    <button id="regBtn" disabled>تسجيل</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="center"><button class="link" id="adminToggle">دخول المشرف</button></div>
+
+  <div class="card hide" id="loginCard">
+    <b>دخول المشرف</b>
+    <input id="pass" type="password" placeholder="كلمة سر المشرف" dir="ltr">
+    <button id="loginBtn">دخول</button>
+    <div class="msg err" id="loginMsg"></div>
+  </div>
+
+  <div class="card hide" id="adminCard">
+    <b>لوحة المشرف</b>
+    <div class="row" style="margin:12px 0">
+      <button id="openBtn">فتح التسجيل (دورة جديدة)</button>
+      <button id="closeBtn" class="red">قفل التسجيل</button>
+    </div>
+    <div>المسجلون في الدورة الحالية: <b id="count">0</b> &nbsp;|&nbsp; عدد الدورات: <b id="rcount">0</b></div>
+    <div class="tw"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+    <div class="row">
+      <button class="sec" id="copyBtn">نسخ الجدول</button>
+      <button class="sec" id="logoutBtn">خروج</button>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+// ====== ضع إعدادات Firebase بتاعتك هنا ======
+const firebaseConfig = {
+  apiKey: "AIzaSyB211ubWUol9P8sqHVJM847cmgiI7S30R8",
+  authDomain: "adults-attend.firebaseapp.com",
+  databaseURL: "https://adults-attend-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "adults-attend",
+  storageBucket: "adults-attend.firebasestorage.app",
+  messagingSenderId: "608923975769",
+  appId: "1:608923975769:web:40f4ae6bfa0955f8acf148"
+};
+const ADMIN_EMAIL = "admin@nursing.com"; // نفس إيميل حساب المشرف في Firebase (الطلبة مش بيشوفوه)
+const DURATION = 15 * 60 * 1000;
+// =========================================
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database(), auth = firebase.auth();
+const $ = id => document.getElementById(id);
+let session = {open:false, round:0}, offset = 0, isAdmin = false, namesRef = null;
+
+db.ref('.info/serverTimeOffset').on('value', s => offset = s.val() || 0);
+const now = () => Date.now() + offset;
+const myRound = () => localStorage.getItem('att_round');
+const remaining = () => session.open ? Math.max(0, (session.openedAt || 0) + DURATION - now()) : 0;
+
+db.ref('session').on('value', s => { session = s.val() || {open:false, round:0}; render(); watchNames(); },
+  () => { $('status').textContent = 'تعذّر الاتصال'; });
+
+function render(){
+  const rem = remaining(), live = session.open && rem > 0;
+  const st = $('status');
+  st.textContent = live ? 'التسجيل مفتوح' : 'التسجيل مغلق';
+  st.className = 'status ' + (live ? 'st-open' : 'st-closed');
+  const m = Math.floor(rem/60000), s = Math.floor(rem%60000/1000);
+  $('timer').textContent = live ? String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') : '00:00';
+  $('timerNote').textContent = live ? 'الوقت المتبقي للتسجيل' : (session.open ? 'انتهى وقت التسجيل' : 'في انتظار فتح التسجيل من المشرف');
+  const done = myRound() === String(session.round) && session.round > 0;
+  $('regBtn').disabled = !live || done;
+  $('name').disabled = !live || done;
+  if (done && live) setMsg('تم تسجيلك في هذه الدورة ✓', 'ok');
+  else if (!live && !done) setMsg('', '');
+}
+setInterval(render, 500);
+
+function setMsg(t, c){ const m = $('msg'); m.textContent = t; m.className = 'msg ' + c; }
+
+$('regBtn').onclick = async () => {
+  const name = $('name').value.trim().replace(/\s+/g, ' ');
+  if (name.length < 6 || name.split(' ').length < 2) return setMsg('اكتب اسمك كامل من فضلك', 'err');
+  const key = name.toLowerCase().replace(/[.$#\[\]\/]/g, '_');
+  $('regBtn').disabled = true;
+  try {
+    await db.ref(`rounds/${session.round}/names/${key}`).set({name, ts: firebase.database.ServerValue.TIMESTAMP});
+    localStorage.setItem('att_round', String(session.round));
+    setMsg('تم تسجيلك بنجاح ✓', 'ok'); render();
+  } catch (e) {
+    setMsg('لم يتم التسجيل: التسجيل مغلق أو الاسم مسجّل بالفعل', 'err'); render();
+  }
+};
+
+// ---- المشرف ----
+$('adminToggle').onclick = () => { if (!isAdmin) $('loginCard').classList.toggle('hide'); };
+$('loginBtn').onclick = () => auth.signInWithEmailAndPassword(ADMIN_EMAIL, $('pass').value)
+  .catch(() => $('loginMsg').textContent = 'كلمة السر غير صحيحة');
+$('pass').onkeydown = e => { if (e.key === 'Enter') $('loginBtn').click(); };
+$('logoutBtn').onclick = () => auth.signOut();
+auth.onAuthStateChanged(u => {
+  isAdmin = !!u;
+  $('adminCard').classList.toggle('hide', !isAdmin);
+  $('loginCard').classList.add('hide');
+  $('adminToggle').classList.toggle('hide', isAdmin);
+  watchNames();
+});
+$('openBtn').onclick = () => db.ref('session').set({open:true, round:(session.round||0)+1, openedAt: firebase.database.ServerValue.TIMESTAMP});
+$('closeBtn').onclick = () => db.ref('session/open').set(false);
+
+let watchedRound = null, cache = {};
+function watchNames(){
+  if (!isAdmin) { if (namesRef) namesRef.off(); namesRef = null; watchedRound = null; cache = {}; return; }
+  if (watchedRound === session.round && namesRef) return;
+  if (namesRef) namesRef.off();
+  watchedRound = session.round;
+  const cur = session.round;
+  for (let i = 1; i < cur; i++) if (!cache[i]) db.ref(`rounds/${i}/names`).once('value').then(sn => { cache[i] = toArr(sn); drawTable(); });
+  namesRef = db.ref(`rounds/${cur}/names`);
+  namesRef.on('value', sn => { cache[cur] = toArr(sn); $('count').textContent = cache[cur].length; drawTable(); });
+}
+function toArr(sn){ const a = []; sn.forEach(c => { a.push(c.val().name); }); return a; }
+const keyOf = n => n.toLowerCase();
+let tableRows = [];
+function drawTable(){
+  const rounds = Object.keys(cache).map(Number).sort((x,y) => x-y);
+  $('rcount').textContent = rounds.length;
+  const people = {};
+  rounds.forEach(r => (cache[r] || []).forEach(n => {
+    const k = keyOf(n); (people[k] = people[k] || {name:n, rs:new Set()}).rs.add(r);
+  }));
+  const list = Object.values(people).sort((a,b) => b.rs.size - a.rs.size || a.name.localeCompare(b.name, 'ar'));
+  $('thead').innerHTML = '<tr><th>#</th><th>الاسم</th><th>سجّل كام مرة</th>' + rounds.map(r => '<th>د' + r + '</th>').join('') + '</tr>';
+  const tb = $('tbody'); tb.innerHTML = '';
+  tableRows = [];
+  list.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    const cells = [String(i+1), p.name, p.rs.size + ' من ' + rounds.length, ...rounds.map(r => p.rs.has(r) ? '✓' : '—')];
+    cells.forEach((t, j) => { const td = document.createElement('td'); td.textContent = t; if (j === 1) td.className = 'n'; if (j === 2) td.className = 'cnt'; tr.appendChild(td); });
+    tb.appendChild(tr); tableRows.push(cells.join('\t'));
+  });
+  document.querySelector('main').classList.toggle('wide', isAdmin && rounds.length > 3);
+}
+$('copyBtn').onclick = () => {
+  navigator.clipboard.writeText(tableRows.join('\n')).then(() => $('copyBtn').textContent = 'تم النسخ ✓');
+};
+</script>
+</body>
+</html>
